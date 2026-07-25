@@ -932,3 +932,11 @@ app.post("/api/analyzeMedicalDocument", async (req, res) => {
 
 // ── Export for Vercel ─────────────────────────────────────────────────────
 module.exports = app;
+
+// ── Local dev only — Vercel handles listening in production ──────────────
+if (require.main === module) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`Server running locally on http://localhost:${PORT}`);
+  });
+}

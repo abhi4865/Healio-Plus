@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "HealthGPT API backend — Vercel Serverless",
   "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "nodemon api/index.js"
+  },
   "engines": {
     "node": ">=20"
   },
@@ -13,5 +17,8 @@
     "@google/genai": "^0.7.0",
     "groq-sdk": "^0.3.3",
     "@huggingface/inference": "^2.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
   }
 }
