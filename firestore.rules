@@ -74,5 +74,16 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isSuperAdmin());
     }
 
+    // ── FCM push token collection ──────────────────────────────────────────────
+    // One doc per user (doc id = uid), holds their registered device push
+    // tokens for the Reminders push-notification feature. The backend's
+    // check-reminders cron uses the Admin SDK, which bypasses these rules
+    // entirely — this rule only gates the frontend's own read/write of its
+    // own token doc.
+
+    match /fcm_tokens/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
   }
 }
