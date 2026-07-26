@@ -393,10 +393,10 @@ const PATIENT_NAV = [
 ];
 
 function Sidebar({ user, active, onNav, mobileOpen, onOverlayClick, collapsed, onToggleCollapse, patientCount }) {
-  const isStaff = user.role === "admin" || user.role === "super_admin" || user.role === "asha";
-  const nav = isStaff
-    ? ADMIN_NAV.map((item) => item.key === "patients" ? { ...item, badge: String(patientCount) } : item)
-    : PATIENT_NAV;
+  // Only "user" and "super_admin" (plus the legacy "admin" demo login) exist
+  // now — there is no separate patient role/dashboard anymore, so everyone
+  // gets the same nav.
+  const nav = ADMIN_NAV.map((item) => item.key === "patients" ? { ...item, badge: String(patientCount) } : item);
 
   return (
     <>
@@ -473,13 +473,7 @@ function Sidebar({ user, active, onNav, mobileOpen, onOverlayClick, collapsed, o
                   {user.name}
                 </div>
                 <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>
-                  {user.role === "admin"
-                    ? "Admin"
-                    : user.role === "super_admin"
-                      ? "Super Admin"
-                      : user.role === "asha"
-                        ? `ASHA Worker • ${formatLocationsLabel(user)}`
-                        : "Patient"}
+                  {user.role === "super_admin" ? "Super Admin" : "User"}
                 </div>
               </div>
             )}
@@ -4797,55 +4791,37 @@ export default function App() {
     ? patients.filter((p) => ashaCanAccessVillage(user, p.village))
     : patients;
 
-  // ── Page router ─────────────────────────────────────────────────────────────
+  // ── Page router ──────────────────────────────────────────────────────────
+  // Only two roles exist now: "user" and "super_admin" (plus the legacy
+  // "admin" demo login). Both use the exact same set of pages — there is no
+  // more separate patient dashboard/health-records flow.
   const renderPage = () => {
-    const isStaff = user.role === "admin" || user.role === "super_admin" || user.role === "asha";
-
-    if (isStaff) {
-      if (page === "reminder") return <Reminder />;
-      if (page === "calendar") return <CalendarNote />;
-      if (page === "manage-admin" && user.role !== "asha") return (
-        <ManageAdminProfile
-          adminProfile={user}
-          // NOTE: `user` (the Firestore login profile) has no `password` field —
-          // Firebase Auth never exposes it client-side. The password-change and
-          // security-question panels below still compare against
-          // `adminProfile.password`, so they will always report "incorrect
-          // password" until that logic is rewired to Firebase's
-          // reauthenticateWithCredential()/updatePassword() flow. This setter
-          // only keeps `name` edits working (and prevents a crash) for now.
-          setAdminProfile={(updater) =>
-            setUser((u) => (typeof updater === "function" ? updater(u) : updater))
-          }
-          toast={toast}
-          onBack={() => setPage("reminder")}
-          onLogout={logout}
-          onNameSaved={(n) => setUser((u) => ({ ...u, name: n }))}
-        />
-      );
-      if (page === "manage-asha" && user.role !== "asha") return (
-        <ManageAsha
-          ashaWorkers={ashaWorkers}
-          setAshaWorkers={setAshaWorkers}
-          patients={patients}
-          toast={toast}
-          onBack={() => setPage("reminder")}
-          canEdit={user.role === "super_admin"}
-        />
-      );
-      if (page === "chatbot")  return <ChatBot />;
-      if (page === "medical")  return <MedicalAnalysis />;
-      if (page === "schemes")  return (
-        <GovtSchemes schemes={schemes} setSchemes={setSchemes} isAdmin={user.role === "super_admin"} toast={toast} />
-      );
-    } else {
-      // Patient role
-      if (page === "profile")  return <PatientDashboard user={user} />;
-      if (page === "records")  return <HealthRecords user={user} history={history} setHistory={setHistory} />;
-      if (page === "chatbot")  return <ChatBot />;
-      if (page === "medical")  return <MedicalAnalysis />;
-      if (page === "schemes")  return <GovtSchemes schemes={schemes} setSchemes={setSchemes} isAdmin={false} toast={toast} />;
-    }
+    if (page === "reminder") return <Reminder />;
+    if (page === "calendar") return <CalendarNote />;
+    if (page === "manage-admin") return (
+      <ManageAdminProfile
+        adminProfile={user}
+        // NOTE: `user` (the Firestore login profile) has no `password` field —
+        // Firebase Auth never exposes it client-side. The password-change and
+        // security-question panels below still compare against
+        // `adminProfile.password`, so they will always report "incorrect
+        // password" until that logic is rewired to Firebase's
+        // reauthenticateWithCredential()/updatePassword() flow. This setter
+        // only keeps `name` edits working (and prevents a crash) for now.
+        setAdminProfile={(updater) =>
+          setUser((u) => (typeof updater === "function" ? updater(u) : updater))
+        }
+        toast={toast}
+        onBack={() => setPage("chatbot")}
+        onLogout={logout}
+        onNameSaved={(n) => setUser((u) => ({ ...u, name: n }))}
+      />
+    );
+    if (page === "chatbot") return <ChatBot />;
+    if (page === "medical") return <MedicalAnalysis />;
+    if (page === "schemes") return (
+      <GovtSchemes schemes={schemes} setSchemes={setSchemes} isAdmin={user.role === "super_admin"} toast={toast} />
+    );
     return null;
   };
 
