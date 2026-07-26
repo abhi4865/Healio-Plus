@@ -43,6 +43,32 @@ const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
 
+// =============================================================================
+//  HEALTH CHECK  (GET /api/health)
+//  Quick uptime + Firebase Admin connectivity check. No auth required.
+//  Useful for cron-ping keep-alive and manual "is the backend alive" checks.
+// =============================================================================
+app.get("/api/health", async (req, res) => {
+  const status = {
+    ok:        true,
+    timestamp: new Date().toISOString(),
+    uptime:    process.uptime(),
+    firebase:  "unknown",
+  };
+
+  try {
+    // Cheap Firestore read to confirm the service account credential actually works.
+    await db.collection(COL.USERS).limit(1).get();
+    status.firebase = "connected";
+  } catch (err) {
+    status.ok = false;
+    status.firebase = "error";
+    status.firebaseError = err.message;
+  }
+
+  return res.status(status.ok ? 200 : 500).json(status);
+});
+
 // ── Role constants (simplified: only 2 roles in this app) ───────────────────
 const ROLES = {
   SUPER_ADMIN: "super_admin",
