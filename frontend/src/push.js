@@ -3,13 +3,14 @@
 // and call initPush(user) once, right after login (see App.jsx integration
 // notes below).
 
+import { getApp } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import { doc, setDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
-import { app, db } from "./firebaseConfig"; // `app` = the firebase.initializeApp() instance
+import { db } from "./firebaseConfig"; // firebaseConfig.js must already call initializeApp() somewhere
 
 // From Firebase Console → Project Settings → Cloud Messaging → Web Push
 // certificates → "Generate key pair". Paste the key here.
-const VAPID_KEY = "BHXYOrX7KGkPU7I15JdpcjaAsRHDMGi9zXaCvglYKwifXd1zo5JoHpzVVS_oLj6xUERTeNKhYqT3j3RFLfYuJ0g";
+const VAPID_KEY = "PASTE_YOUR_VAPID_PUBLIC_KEY_HERE";
 
 /**
  * Call this once after a successful login. Safe to call every login —
@@ -32,7 +33,7 @@ export async function initPush(user) {
     }
     if (permission !== "granted") return;
 
-    const messaging = getMessaging(app);
+    const messaging = getMessaging(getApp());
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: registration,
