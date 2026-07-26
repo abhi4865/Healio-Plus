@@ -4687,37 +4687,13 @@ export default function App() {
     };
   }, []);
 
-  // ── Real-time patients from Firestore ───────────────────────────────────────
-  // ASHA workers only ever see patients in their own village (see
-  // `visiblePatients` below), so for them we filter server-side too —
-  // downloading the entire patients collection just to throw most of it
-  // away client-side was the main thing making data load slowly right
-  // after an ASHA worker signed in. Sorting is done client-side here to
-  // avoid requiring a new Firestore composite index (village + registered).
-  useEffect(() => {
-    if (!user) return;
-    const isAsha        = user.role === "asha";
-    const hasAllAccess  = isAsha && ashaHasAllAccess(user);
-    const ashaLocations = isAsha ? getAshaLocations(user) : [];
-    // Firestore's `in` operator only supports up to 10 values — for workers
-    // assigned more locations than that we fall back to fetching everything
-    // and filtering client-side below (rare case, but keeps things working).
-    const useServerFilter = isAsha && !hasAllAccess && ashaLocations.length > 0 && ashaLocations.length <= 10;
-
-    const q = useServerFilter
-      ? query(collection(db, "patients"), where("village", "in", ashaLocations))
-      : query(collection(db, "patients"), orderBy("registered", "desc"));
-
-    return onSnapshot(q, (snap) => {
-      let docs = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
-      if (isAsha && !hasAllAccess) {
-        const locSet = new Set(ashaLocations.map((l) => l.trim().toLowerCase()));
-        docs = docs.filter((p) => locSet.has((p.village || "").trim().toLowerCase()));
-      }
-      if (useServerFilter) docs.sort((a, b) => (b.registered || "").localeCompare(a.registered || ""));
-      setPatients(docs);
-    });
-  }, [user]);
+  // NOTE: the old ASHA+ patients-collection listener used to live here. It
+  // was removed — this app now only has "user" and "super_admin" roles,
+  // there is no patients collection or Firestore rule for it anymore, and
+  // that unconditional listener was the cause of a
+  // "Missing or insufficient permissions" console error firing for every
+  // signed-in user. patients/ashaWorkers state below is kept only because
+  // the unused legacy ManageAsha/PatientDashboard components still read it.
 
   // ── Real-time government schemes from Firestore ─────────────────────────────
   // Falls back to the built-in GOVT_SCHEMES until the "govt_schemes" collection
@@ -4731,15 +4707,11 @@ export default function App() {
     });
   }, [user]);
 
-  // ── Real-time ASHA workers list (admin/super_admin only) ────────────────────
-  useEffect(() => {
-    if (!user) return;
-    if (user.role !== "admin" && user.role !== "super_admin") return;
-    const q = query(collection(db, "users"), where("role", "==", "asha"));
-    return onSnapshot(q, (snap) =>
-      setAshaWorkers(snap.docs.map((d) => d.data()))
-    );
-  }, [user]);
+  // NOTE: the old "ASHA workers list" listener used to live here too. Removed
+  // for the same reason as above — the "asha" role no longer exists, so this
+  // query always returned nothing useful, and it would also throw
+  // permission-denied for the legacy "admin" demo account (Firestore rules
+  // only grant broad users-collection read to "super_admin", not "admin").
 
   // ── Auth helpers ────────────────────────────────────────────────────────────
   const login = (profile) => {
