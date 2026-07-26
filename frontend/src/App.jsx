@@ -19,6 +19,7 @@ import {
   limit,
 } from "firebase/firestore";
 import { auth, db } from "./firebaseConfig";
+import { initPush } from "./push";
 import {
   askHealthAssistant,
   analyzeMedicalDocument,
@@ -4671,6 +4672,7 @@ export default function App() {
             const profile = snap.data();
             setUser(profile);
             setPage("chatbot");
+            initPush(profile);
           }
         } catch (err) {
           console.error("Session restore failed:", err);
@@ -4744,6 +4746,7 @@ export default function App() {
     isManualLoginRef.current = false;
     setUser(profile);
     setPage("chatbot");
+    initPush(profile);
   };
 
   const logout = async () => {

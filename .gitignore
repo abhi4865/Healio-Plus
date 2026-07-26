@@ -96,3 +96,5 @@ node_modules/
 .env.*
 dist/
 serviceAccountKey.json
+
+PUSH_NOTIFICATIONS_SETUP.md
