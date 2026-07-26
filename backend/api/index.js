@@ -24,6 +24,7 @@ const crypto          = require("crypto");
 const { initializeApp, cert, getApps } = require("firebase-admin/app");
 const { getAuth }     = require("firebase-admin/auth");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getMessaging }  = require("firebase-admin/messaging");
 const { GoogleGenAI } = require("@google/genai");
 const Groq            = require("groq-sdk");
 const { InferenceClient } = require("@huggingface/inference");
@@ -37,6 +38,7 @@ if (!getApps().length) {
 
 const db   = getFirestore();
 const auth = getAuth();
+const messaging = getMessaging();
 
 // ── Express setup ─────────────────────────────────────────────────────────────
 const app = express();
@@ -91,6 +93,96 @@ app.get("/api/health", async (req, res) => {
   }
 
   return res.status(status.ok ? 200 : 500).json(status);
+});
+
+// =============================================================================
+//  CRON: CHECK REMINDERS  (GET /api/check-reminders?secret=...)
+//  Hit once a minute by an external free cron (cron-job.org). Finds any due
+//  reminder across all users and sends a real FCM push notification, so
+//  reminders fire even if the app/browser is fully closed. Mirrors the exact
+//  computeNextFire() math the frontend uses, so both stay in sync.
+// =============================================================================
+function computeNextFireServer(r) {
+  if (r.mode === "once") {
+    if (!r.date || !r.time) return null;
+    const t = new Date(`${r.date}T${r.time}:00`).getTime();
+    return Number.isNaN(t) ? null : t;
+  }
+  const intervalMs = ((Number(r.everyHrs) || 0) * 60 + (Number(r.everyMin) || 0)) * 60 * 1000;
+  if (!intervalMs) return null;
+  const base = toMillisServer(r.lastFired) || toMillisServer(r.createdAt) || Date.now();
+  return base + intervalMs;
+}
+
+function toMillisServer(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number") return v;
+  if (typeof v.toMillis === "function") return v.toMillis();
+  if (typeof v._seconds === "number") return v._seconds * 1000;
+  return null;
+}
+
+app.get("/api/check-reminders", async (req, res) => {
+  if (req.query.secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const snap = await db
+      .collection(COL.REMINDERS)
+      .where("done", "==", false)
+      .where("paused", "==", false)
+      .get();
+
+    const now = Date.now();
+    const results = [];
+
+    for (const docSnap of snap.docs) {
+      const r = { ...docSnap.data(), id: docSnap.id };
+      const fireAt = computeNextFireServer(r);
+      if (fireAt === null || fireAt > now) continue;
+
+      const tokenDoc = await db.collection("fcm_tokens").doc(r.userId).get();
+      const tokens = tokenDoc.exists ? tokenDoc.data().tokens || [] : [];
+
+      if (tokens.length > 0) {
+        const message = {
+          notification: {
+            title: "⏰ Healio+ Reminder",
+            body: r.text || "You have a reminder.",
+          },
+          data: { reminderId: r.id },
+          tokens,
+        };
+        const sendResult = await messaging.sendEachForMulticast(message);
+
+        const deadTokens = [];
+        sendResult.responses.forEach((resp, i) => {
+          if (!resp.success && resp.error?.code === "messaging/registration-token-not-registered") {
+            deadTokens.push(tokens[i]);
+          }
+        });
+        if (deadTokens.length > 0) {
+          await db.collection("fcm_tokens").doc(r.userId).update({
+            tokens: FieldValue.arrayRemove(...deadTokens),
+          });
+        }
+      }
+
+      if (r.mode === "once") {
+        await docSnap.ref.update({ done: true, lastFired: now });
+      } else {
+        await docSnap.ref.update({ lastFired: now });
+      }
+
+      results.push({ id: r.id, userId: r.userId, tokensNotified: tokens.length });
+    }
+
+    return res.status(200).json({ checked: snap.size, fired: results.length, results });
+  } catch (err) {
+    console.error("check-reminders failed:", err);
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // ── Role constants (simplified: only 2 roles in this app) ───────────────────
