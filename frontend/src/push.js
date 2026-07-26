@@ -10,7 +10,7 @@ import { db } from "./firebaseConfig"; // firebaseConfig.js must already call in
 
 // From Firebase Console → Project Settings → Cloud Messaging → Web Push
 // certificates → "Generate key pair". Paste the key here.
-const VAPID_KEY = "PASTE_YOUR_VAPID_PUBLIC_KEY_HERE";
+const VAPID_KEY = "BHXYOrX7KGkPU7I15JdpcjaAsRHDMGi9zXaCvglYKwifXd1zo5JoHpzVVS_oLj6xUERTeNKhYqT3j3RFLfYuJ0g";
 
 /**
  * Call this once after a successful login. Safe to call every login —
@@ -23,8 +23,12 @@ export async function initPush(user) {
   if (!("serviceWorker" in navigator)) return;
 
   try {
-    // Register the background service worker (idempotent — safe to call every load).
-    const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+    // Register the background service worker (idempotent — safe to call every load),
+    // then wait until it's actually ACTIVE — register() alone can resolve while
+    // the worker is still installing, which makes pushManager.subscribe() throw
+    // "no active Service Worker".
+    await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+    const registration = await navigator.serviceWorker.ready;
 
     // Ask permission if we haven't already asked/decided.
     let permission = Notification.permission;
