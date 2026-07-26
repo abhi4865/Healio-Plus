@@ -40,7 +40,31 @@ const auth = getAuth();
 
 // ── Express setup ─────────────────────────────────────────────────────────────
 const app = express();
-app.use(cors({ origin: true }));
+
+// Explicit allow-list. Add any new deployed frontend origins here.
+const ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  "https://healthgpt-90b51.web.app",
+  "https://healthgpt-90b51.firebaseapp.com",
+];
+
+const corsOptions = {
+  origin(origin, callback) {
+    // Allow no-origin requests (curl, Postman, server-to-server) and any allow-listed origin.
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Origin ${origin} not allowed by CORS`));
+  },
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+// Explicitly answer every preflight OPTIONS request before any auth/logic runs.
+app.options("*", cors(corsOptions));
+
 app.use(express.json());
 
 // =============================================================================
@@ -956,6 +980,37 @@ app.post("/api/analyzeMedicalDocument", async (req, res) => {
   }
 
   return res.json({ response: result.text, source: result.source });
+});
+
+// =============================================================================
+//  GLOBAL ERROR HANDLER
+//  Must be registered last. Catches anything thrown/rejected in any route
+//  above (including bad JSON bodies) so the response still carries CORS
+//  headers instead of Vercel returning a bare, header-less error — which is
+//  what causes "No 'Access-Control-Allow-Origin' header" in the browser.
+// =============================================================================
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  }
+
+  if (res.headersSent) return next(err);
+
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({ error: err.message || "Internal server error." });
+});
+
+// 404 fallback for unmatched routes (also needs CORS headers)
+app.use((req, res) => {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+  res.status(404).json({ error: `No route for ${req.method} ${req.path}` });
 });
 
 // ── Export for Vercel ─────────────────────────────────────────────────────

@@ -10,21 +10,47 @@ import { auth } from "./firebaseConfig";
 const BASE_URL =
   import.meta.env.VITE_API_URL || "https://healio-plus.vercel.app";
 
+// ── Shared low-level request helper ───────────────────────────────────────────
+// Used by both apiFetch() and selfRegisterUser() so error handling only
+// lives in one place.
+async function request(endpoint, body, token) {
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}${endpoint}`, {
+      method:  "POST",
+      headers: {
+        "Content-Type":  "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (networkErr) {
+    // fetch() itself threw — this is a network/CORS failure, not an API error.
+    // res.json() would never run, so surface something readable instead of
+    // letting "Failed to fetch" bubble up unexplained.
+    throw new Error(
+      `Could not reach the server at ${BASE_URL}. This is usually a network issue or a CORS block — check the Network tab for the failed request. (${networkErr.message})`
+    );
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    // Server responded but body wasn't JSON (e.g. a raw 500 HTML page from Vercel).
+    throw new Error(`Server returned an unexpected response (status ${res.status}).`);
+  }
+
+  if (!res.ok) {
+    throw new Error(data.error || `Request failed (status ${res.status}).`);
+  }
+  return data;
+}
+
 // ── Core fetch helper — attaches Firebase ID token automatically ─────────────
 async function apiFetch(endpoint, body) {
   const token = await auth.currentUser?.getIdToken();
-  const res   = await fetch(`${BASE_URL}${endpoint}`, {
-    method:  "POST",
-    headers: {
-      "Content-Type":  "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Request failed");
-  return data;
+  return request(endpoint, body, token);
 }
 
 // ── Self-Registration (no existing session needed — uses fresh signup token) ──
@@ -35,17 +61,7 @@ async function apiFetch(endpoint, body) {
  * since auth.currentUser may not be set yet when this runs.
  */
 export async function selfRegisterUser(idToken, { name, email }) {
-  const res  = await fetch(`${BASE_URL}/api/selfRegisterUser`, {
-    method:  "POST",
-    headers: {
-      "Content-Type":  "application/json",
-      Authorization:   `Bearer ${idToken}`,
-    },
-    body: JSON.stringify({ name, email }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Registration failed");
-  return data; // { success }
+  return request("/api/selfRegisterUser", { name, email }, idToken);
 }
 
 // ── Auth & User Management (super_admin only) ─────────────────────────────────

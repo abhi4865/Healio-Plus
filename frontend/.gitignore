@@ -17,27 +17,48 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-# Env files
+# Env files (cover every location, not just root)
 .env
 .env.local
 .env.*.local
 .env.development
 .env.production
+.env.test
 backend/.env
+backend/.env.*
 server/.env
+server/.env.*
+frontend/.env
+frontend/.env.*
 
 # Firebase
 .firebase/
+.firebaserc
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+pgsql-debug.log
+
+# Firebase / Google service account credentials (never commit these)
+serviceAccountKey.json
+service-account*.json
+*firebase-adminsdk*.json
+
+# Vercel
+.vercel
 
 # Build/misc
 *.tsbuildinfo
 .cache/
+
+# Misc credential/key files (just in case)
+*.pem
+*.key
+credentials.json
