@@ -4676,7 +4676,7 @@ export default function App() {
           if (snap.exists()) {
             const profile = snap.data();
             setUser(profile);
-            setPage(profile.role === "patient" ? "profile" : "reminder");
+            setPage("chatbot");
           }
         } catch (err) {
           console.error("Session restore failed:", err);
@@ -4749,7 +4749,7 @@ export default function App() {
   const login = (profile) => {
     isManualLoginRef.current = false;
     setUser(profile);
-    setPage(profile.role === "patient" ? "profile" : "reminder");
+    setPage("chatbot");
   };
 
   const logout = async () => {
