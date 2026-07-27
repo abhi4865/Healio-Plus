@@ -302,12 +302,6 @@ body {
   color: var(--text-dark);
 }
 
-.topbar-breadcrumb {
-  font-size: 13px;
-  color: var(--text-muted);
-  font-weight: 400;
-}
-
 .topbar-right {
   display: flex;
   align-items: center;

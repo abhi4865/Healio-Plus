@@ -493,7 +493,6 @@ function TopBar({ user, pageTitle, onLogout, onMenuToggle, onNav }) {
         <button className="sidebar-toggle" onClick={onMenuToggle}>☰</button>
         <div>
           <div className="topbar-title">{pageTitle}</div>
-          <div className="topbar-breadcrumb">Healio+ › {pageTitle}</div>
         </div>
       </div>
       <div className="topbar-right">
