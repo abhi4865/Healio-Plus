@@ -1843,64 +1843,51 @@ function ChatBot() {
   const [listening, setListening] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(true);
   const [voiceLang, setVoiceLang] = useState("en-IN"); // "en-IN" | "hi-IN" — must be picked BEFORE starting the mic
+  const { user } = useAuth();
   const [recentQuestions, setRecentQuestions] = useState([]);
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const recognitionRef = useRef(null);
   const pdfContentRef  = useRef(null); // hidden DOM node captured for the downloadable PDF
 
-  // ── Live listener: last 5 questions from Firestore cache ──────────────────
-  // Strategy: try ordered (newest first). If that fails due to a missing Firestore
-  // index or a rules issue, fall back to unordered so something always shows.
+  // ── "Recently Asked" — PRIVATE, per-user, local only ────────────────────────
+  // IMPORTANT: this used to read the last 5 docs straight out of the shared
+  // `cached_responses` Firestore collection — but that collection is a
+  // GLOBAL cross-user cache keyed by question text (see backend
+  // askHealthAssistant), with no userId field at all, by design, so the same
+  // cached answer can be reused across every user and save AI calls. Reading
+  // "last 5 docs" out of it meant every user could see the most recent
+  // questions ANY other user had asked — a real health-privacy leak.
+  //
+  // Fix: track only what THIS signed-in user has personally asked, stored
+  // client-side in localStorage under a key scoped to their uid. Nothing is
+  // sent to or read from any shared collection, so there is no cross-user
+  // visibility at all, and no backend/Firestore changes were needed.
+  const recentQuestionsKey = user?.uid ? `healio_recent_questions_${user.uid}` : null;
+
   useEffect(() => {
-    let unsub = () => {};
+    if (!recentQuestionsKey) { setRecentQuestions([]); return; }
+    try {
+      const stored = JSON.parse(localStorage.getItem(recentQuestionsKey) || "[]");
+      setRecentQuestions(Array.isArray(stored) ? stored : []);
+    } catch {
+      setRecentQuestions([]);
+    }
+  }, [recentQuestionsKey]);
 
-    const attachUnordered = () => {
-      const q = query(collection(db, "cached_responses"), limit(5));
-      unsub = onSnapshot(
-        q,
-        (snap) => {
-          const qs = snap.docs
-            .map((d) => d.data().originalPrompt)
-            .filter(Boolean);
-          setRecentQuestions(qs);
-        },
-        (err) => {
-          // If even the unordered query fails it is a rules problem.
-          // Log it so the developer can see the real error in the console.
-          console.error("[Healio+] cached_responses read failed:", err.code, err.message);
-        }
-      );
-    };
-
-    const attachOrdered = () => {
-      const q = query(
-        collection(db, "cached_responses"),
-        orderBy("createdAt", "desc"),
-        limit(5)
-      );
-      unsub = onSnapshot(
-        q,
-        (snap) => {
-          const qs = snap.docs
-            .map((d) => d.data().originalPrompt)
-            .filter(Boolean);
-          setRecentQuestions(qs);
-        },
-        (err) => {
-          // "failed-precondition" = missing Firestore index for orderBy.
-          // "permission-denied"   = Firestore rules not yet deployed.
-          // Either way, fall back to unordered so recent questions still appear.
-          console.warn(
-            "[Healio+] Ordered cache query failed (" + err.code + ") — falling back to unordered."
-          );
-          attachUnordered();
-        }
-      );
-    };
-
-    attachOrdered();
-    return () => unsub();
-  }, []);
+  const addRecentQuestion = (promptText) => {
+    if (!recentQuestionsKey || !promptText?.trim()) return;
+    setRecentQuestions((prev) => {
+      // newest first, de-duped, capped at 5 — same shape/limit as before.
+      const next = [promptText.trim(), ...prev.filter((q) => q !== promptText.trim())].slice(0, 5);
+      try {
+        localStorage.setItem(recentQuestionsKey, JSON.stringify(next));
+      } catch {
+        // localStorage can throw in private-browsing/storage-full edge cases —
+        // non-fatal, the panel just won't persist across reloads that session.
+      }
+      return next;
+    });
+  };
 
   // Rebuilt every time voiceLang changes, so the mic always listens in
   // whichever language the user picked BEFORE tapping the mic — no more
@@ -1948,6 +1935,7 @@ function ChatBot() {
     try {
       const { response } = await askHealthAssistant(input);
       setMessages((m) => [...m, { from: "bot", text: response }]);
+      addRecentQuestion(input);
     } catch (err) {
       setMessages((m) => [
         ...m,
