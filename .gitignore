@@ -106,3 +106,5 @@ PUSH_NOTIFICATIONS_SETUP.md
 *.txt
 *.text
 !README.md
+
+*.pdf
