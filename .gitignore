@@ -98,3 +98,11 @@ dist/
 serviceAccountKey.json
 
 PUSH_NOTIFICATIONS_SETUP.md
+
+# Ignore documentation and text artifacts, except the root README
+*.md
+*.ppt
+*.pptx
+*.txt
+*.text
+!README.md
