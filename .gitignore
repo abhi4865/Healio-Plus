@@ -119,3 +119,9 @@ security1.md
 
 .cursor
 .firebase
+
+.firebase/
+frontend/dist/
+node_modules/
+.env
+.env.local
