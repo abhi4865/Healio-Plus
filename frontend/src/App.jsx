@@ -26,6 +26,7 @@ import {
   createUser,
   deleteAuthUser,
   selfRegisterUser,
+  verifyCaptcha,
   addReminder as apiAddReminder,
   updateReminder as apiUpdateReminder,
   deleteReminder as apiDeleteReminder,
@@ -224,13 +225,11 @@ function AuthPage({ onLogin, onLoginStart, onLoginEnd }) {
     setLoading(true);
     onLoginStart?.();
     try {
-      const verifyRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/verify-captcha`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ token: captchaToken }),
-      });
-      const verifyData = await verifyRes.json();
-      if (!verifyData.success) {
+      // Throws a readable Error (network issue, non-JSON response, or
+      // { success:false } from the server) — caught below like any other
+      // login failure.
+      const verifyData = await verifyCaptcha(captchaToken);
+      if (!verifyData?.success) {
         window.grecaptcha?.reset(captchaWidgetId.current ?? undefined);
         throw new Error("CAPTCHA verification failed. Please try again.");
       }

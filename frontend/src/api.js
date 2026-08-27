@@ -79,6 +79,13 @@ export const deleteAuthUser = (uid) =>
 export const listUsers = () =>
   apiFetch("/api/listUsers", {});
 
+// ── CAPTCHA ────────────────────────────────────────────────────────────────
+// No auth token yet at this point (called before Firebase sign-in), so this
+// goes through request() directly rather than apiFetch().
+
+export const verifyCaptcha = (token) =>
+  request("/api/verify-captcha", { token });
+
 // ── Government Schemes (management: super_admin only) ─────────────────────────
 
 export const addScheme = (scheme) =>
