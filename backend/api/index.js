@@ -28,7 +28,7 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging }  = require("firebase-admin/messaging");
 const { GoogleGenAI } = require("@google/genai");
 const Groq            = require("groq-sdk");
-const { InferenceClient } = require("@huggingface/inference");
+const { HfInference } = require("@huggingface/inference");
 const { authLimiter, chatbotLimiter, generalApiLimiter } = require("../middleware/rateLimit");
 const { maybeUploadSingle } = require("../middleware/upload");
 const { validate } = require("../middleware/validate");
@@ -929,7 +929,7 @@ async function callGroq(systemPrompt, userPrompt) {
 }
 
 async function callHuggingFace(systemPrompt, userPrompt) {
-  const hf         = new InferenceClient(process.env.HF_TOKEN);
+  const hf         = new HfInference(process.env.HF_TOKEN);
   const completion = await hf.chatCompletion({
     model:      "meta-llama/Llama-3.1-8B-Instruct",
     messages:   [
@@ -1161,6 +1161,3 @@ if (require.main === module) {
     console.log(`Server running locally on http://localhost:${PORT}`);
   });
 }
-
-
-
