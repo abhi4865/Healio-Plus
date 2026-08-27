@@ -905,7 +905,7 @@ function hashOf(text) {
 async function callGemini(systemPrompt, userPrompt) {
   const ai     = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const result = await ai.models.generateContent({
-    model:    "gemini-2.5-flash",
+    model:    "gemini-3.6-flash",
     contents: userPrompt,
     config:   { systemInstruction: systemPrompt },
   });
@@ -917,7 +917,7 @@ async function callGemini(systemPrompt, userPrompt) {
 async function callGroq(systemPrompt, userPrompt) {
   const groq       = new Groq({ apiKey: process.env.GROQ_API_KEY });
   const completion = await groq.chat.completions.create({
-    model:    "llama-3.3-70b-versatile",
+    model:    "openai/gpt-oss-120b",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user",   content: userPrompt },
