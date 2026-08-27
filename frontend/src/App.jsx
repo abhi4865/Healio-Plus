@@ -133,6 +133,8 @@ function useToast() {
 const DEMO_EMAIL    = "test@gmail.com";
 const DEMO_PASSWORD = "@test1234";
 
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+
 function AuthPage({ onLogin, onLoginStart, onLoginEnd }) {
   const [mode, setMode] = useState("login"); // "login" | "register"
 
@@ -143,6 +145,50 @@ function AuthPage({ onLogin, onLoginStart, onLoginEnd }) {
   const [error, setError]     = useState("");
   const [showPass, setShowP]  = useState(false);
   const [showForgotMsg, setShowForgotMsg] = useState(false);
+
+  // CAPTCHA (login only)
+  const captchaBoxRef  = useRef(null);
+  const captchaWidgetId = useRef(null);
+  const [captchaReady, setCaptchaReady] = useState(false);
+
+  // Load the reCAPTCHA script once, then render the widget into captchaBoxRef.
+  useEffect(() => {
+    if (mode !== "login") return;
+
+    function renderWidget() {
+      if (!window.grecaptcha || !window.grecaptcha.render || !captchaBoxRef.current) return;
+      if (captchaWidgetId.current !== null) return; // already rendered
+      captchaWidgetId.current = window.grecaptcha.render(captchaBoxRef.current, {
+        sitekey: RECAPTCHA_SITE_KEY,
+      });
+      setCaptchaReady(true);
+    }
+
+    if (window.grecaptcha && window.grecaptcha.render) {
+      renderWidget();
+      return;
+    }
+
+    const existing = document.getElementById("recaptcha-script");
+    if (!existing) {
+      const script = document.createElement("script");
+      script.id = "recaptcha-script";
+      script.src = "https://www.google.com/recaptcha/api.js";
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+
+    // Poll until the script has finished loading and grecaptcha is available.
+    const interval = setInterval(() => {
+      if (window.grecaptcha && window.grecaptcha.render) {
+        clearInterval(interval);
+        renderWidget();
+      }
+    }, 300);
+
+    return () => clearInterval(interval);
+  }, [mode]);
 
   // Register-only
   const [name, setName]           = useState("");
@@ -159,7 +205,13 @@ function AuthPage({ onLogin, onLoginStart, onLoginEnd }) {
     e?.preventDefault();
     setError("");
 
-    // Demo/local shortcut — instant, no Firebase round trip.
+    // Demo/local shortcut — instant, no Firebase round trip. CAPTCHA still
+    // required so the demo path can't be used to brute-force it either.
+    const captchaToken = window.grecaptcha?.getResponse(captchaWidgetId.current ?? undefined);
+    if (!captchaToken) {
+      return setError("Please complete the CAPTCHA.");
+    }
+
     if (email.trim() === DEMO_EMAIL && password === DEMO_PASSWORD) {
       setLoading(true);
       setTimeout(() => {
@@ -172,12 +224,24 @@ function AuthPage({ onLogin, onLoginStart, onLoginEnd }) {
     setLoading(true);
     onLoginStart?.();
     try {
+      const verifyRes = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/verify-captcha`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ token: captchaToken }),
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyData.success) {
+        window.grecaptcha?.reset(captchaWidgetId.current ?? undefined);
+        throw new Error("CAPTCHA verification failed. Please try again.");
+      }
+
       const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
       await cred.user.getIdToken(true); // refresh so role claim is present
       const snap = await getDoc(doc(db, "users", cred.user.uid));
       if (!snap.exists()) throw new Error("No profile found for this account.");
       onLogin(snap.data());
     } catch (err) {
+      window.grecaptcha?.reset(captchaWidgetId.current ?? undefined);
       setError(err.message?.replace(/^Firebase:\s*/, "") || "Login failed.");
     } finally {
       setLoading(false);
@@ -315,6 +379,13 @@ function AuthPage({ onLogin, onLoginStart, onLoginEnd }) {
               <div className="login-demo-creds" style={{ marginBottom: 20 }}>
                 Password reset isn't available in this build. Use the demo
                 account: {DEMO_EMAIL} / {DEMO_PASSWORD}
+              </div>
+            )}
+
+            {/* CAPTCHA — login only */}
+            {!isRegister && (
+              <div style={{ marginBottom: 20 }}>
+                <div ref={captchaBoxRef} />
               </div>
             )}
 

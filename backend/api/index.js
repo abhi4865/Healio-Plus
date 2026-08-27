@@ -295,6 +295,39 @@ function sendError(res, err) {
 //  1. INITIALIZE ADMIN  (POST /api/initializeAdmin)
 //  Called once via curl/Postman to bootstrap the first super_admin.
 // =============================================================================
+// =============================================================================
+//  CAPTCHA VERIFY  (POST /api/verify-captcha)
+//  Verifies a Google reCAPTCHA v2 ("I'm not a robot") token server-side
+//  before allowing a login attempt to proceed. No auth required (this runs
+//  before the user is authenticated).
+// =============================================================================
+app.post("/api/verify-captcha", authLimiter, async (req, res) => {
+  const { token } = req.body || {};
+  if (!token) {
+    return sendError(res, { code: 400, message: 'Missing "token".' });
+  }
+
+  try {
+    const params = new URLSearchParams({
+      secret:   process.env.RECAPTCHA_SECRET_KEY,
+      response: token,
+    });
+    const googleRes = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+      method: "POST",
+      body:   params,
+    });
+    const data = await googleRes.json();
+
+    if (data.success) {
+      return res.json({ success: true });
+    }
+    return sendError(res, { code: 403, message: "CAPTCHA verification failed." });
+  } catch (err) {
+    console.error("verify-captcha failed:", err.message);
+    return sendError(res, { code: 500, message: "CAPTCHA verification error." });
+  }
+});
+
 app.post("/api/initializeAdmin", authLimiter, validate(initializeAdminSchema), async (req, res) => {
   const { setupToken, email, password, name } = req.body || {};
 
