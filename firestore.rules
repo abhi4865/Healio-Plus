@@ -9,16 +9,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isSuperAdmin() {
+      return isSignedIn() && request.auth.token.role == 'super_admin';
+    }
+
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
-    }
-
-    function getRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-
-    function isSuperAdmin() {
-      return isSignedIn() && getRole() == 'super_admin';
     }
 
     // ── Users collection ──────────────────────────────────────────────────────
@@ -26,8 +22,8 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read:   if isOwner(userId) || isSuperAdmin();
-      allow create: if isSignedIn();
-      allow update: if isOwner(userId) || isSuperAdmin();
+      allow create: if isSignedIn() && (isOwner(userId) || isSuperAdmin());
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isSuperAdmin();
       allow delete: if isSuperAdmin();
     }
 
@@ -83,6 +79,10 @@ service cloud.firestore {
 
     match /fcm_tokens/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
 
   }

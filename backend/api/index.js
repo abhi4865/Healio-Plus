@@ -20,6 +20,7 @@ require("dotenv").config();
 
 const express         = require("express");
 const cors            = require("cors");
+const helmet          = require("helmet");
 const crypto          = require("crypto");
 const { initializeApp, cert, getApps } = require("firebase-admin/app");
 const { getAuth }     = require("firebase-admin/auth");
@@ -28,6 +29,27 @@ const { getMessaging }  = require("firebase-admin/messaging");
 const { GoogleGenAI } = require("@google/genai");
 const Groq            = require("groq-sdk");
 const { InferenceClient } = require("@huggingface/inference");
+const { authLimiter, chatbotLimiter, generalApiLimiter } = require("../middleware/rateLimit");
+const { maybeUploadSingle } = require("../middleware/upload");
+const { validate } = require("../middleware/validate");
+const {
+  initializeAdminSchema,
+  selfRegisterSchema,
+  createUserSchema,
+  updateUserRoleSchema,
+  deleteUserSchema,
+  schemeSchema,
+  schemeUpdateSchema,
+  deleteSchemeSchema,
+  reminderSchema,
+  reminderUpdateSchema,
+  reminderDeleteSchema,
+  calendarNoteAddSchema,
+  calendarNoteUpdateSchema,
+  calendarNoteDeleteSchema,
+  askHealthAssistantSchema,
+  analyzeMedicalDocumentSchema,
+} = require("../validators/schemas");
 
 // ── Firebase Admin init (safe for serverless — only runs once per cold start) ─
 if (!getApps().length) {
@@ -42,6 +64,28 @@ const messaging = getMessaging();
 
 // ── Express setup ─────────────────────────────────────────────────────────────
 const app = express();
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: [
+        "'self'",
+        "https://healthgpt-90b51.web.app",
+        "https://healthgpt-90b51.firebaseapp.com",
+        "https://firestore.googleapis.com",
+        "https://identitytoolkit.googleapis.com",
+        "https://generativelanguage.googleapis.com",
+        "https://api.groq.com",
+        "https://api-inference.huggingface.co",
+      ],
+    },
+  },
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
 
 // Explicit allow-list. Add any new deployed frontend origins here.
 const ALLOWED_ORIGINS = [
@@ -67,6 +111,7 @@ app.use(cors(corsOptions));
 // Explicitly answer every preflight OPTIONS request before any auth/logic runs.
 app.options("*", cors(corsOptions));
 
+app.use("/api", generalApiLimiter);
 app.use(express.json());
 
 // =============================================================================
@@ -249,7 +294,7 @@ function sendError(res, err) {
 //  1. INITIALIZE ADMIN  (POST /api/initializeAdmin)
 //  Called once via curl/Postman to bootstrap the first super_admin.
 // =============================================================================
-app.post("/api/initializeAdmin", async (req, res) => {
+app.post("/api/initializeAdmin", authLimiter, validate(initializeAdminSchema), async (req, res) => {
   const { setupToken, email, password, name } = req.body || {};
 
   if (!setupToken || setupToken !== process.env.SETUP_TOKEN) {
@@ -304,7 +349,7 @@ app.post("/api/initializeAdmin", async (req, res) => {
 //  Called immediately after Firebase Auth signup on the client.
 //  Uses the new user's own ID token — no staff role required.
 // =============================================================================
-app.post("/api/selfRegisterUser", async (req, res) => {
+app.post("/api/selfRegisterUser", authLimiter, validate(selfRegisterSchema), async (req, res) => {
   const decoded = await verifyToken(req);
   if (!decoded) {
     return sendError(res, { code: 401, message: "Authentication required. Please try again." });
@@ -345,7 +390,7 @@ app.post("/api/selfRegisterUser", async (req, res) => {
 //  3. CREATE USER  (POST /api/createUser)
 //  super_admin creates another user (regular "user" or another "super_admin").
 // =============================================================================
-app.post("/api/createUser", async (req, res) => {
+app.post("/api/createUser", authLimiter, validate(createUserSchema), async (req, res) => {
   const decoded = await verifyToken(req);
   const authErr = checkRole(decoded, ROLES.SUPER_ADMIN);
   if (authErr) return sendError(res, authErr);
@@ -392,7 +437,7 @@ app.post("/api/createUser", async (req, res) => {
 // =============================================================================
 //  4. UPDATE USER ROLE  (POST /api/updateUserRole)  — super_admin only
 // =============================================================================
-app.post("/api/updateUserRole", async (req, res) => {
+app.post("/api/updateUserRole", validate(updateUserRoleSchema), async (req, res) => {
   const decoded = await verifyToken(req);
   const authErr = checkRole(decoded, ROLES.SUPER_ADMIN);
   if (authErr) return sendError(res, authErr);
@@ -417,7 +462,7 @@ app.post("/api/updateUserRole", async (req, res) => {
 // =============================================================================
 //  5. DELETE AUTH USER  (POST /api/deleteAuthUser)  — super_admin only
 // =============================================================================
-app.post("/api/deleteAuthUser", async (req, res) => {
+app.post("/api/deleteAuthUser", validate(deleteUserSchema), async (req, res) => {
   const decoded = await verifyToken(req);
   const authErr = checkRole(decoded, ROLES.SUPER_ADMIN);
   if (authErr) return sendError(res, authErr);
@@ -438,7 +483,7 @@ app.post("/api/deleteAuthUser", async (req, res) => {
 // =============================================================================
 //  6. LIST USERS  (POST /api/listUsers)  — super_admin only
 // =============================================================================
-app.post("/api/listUsers", async (req, res) => {
+app.post("/api/listUsers", validate(listUsersSchema), async (req, res) => {
   const decoded = await verifyToken(req);
   const authErr = checkRole(decoded, ROLES.SUPER_ADMIN);
   if (authErr) return sendError(res, authErr);
@@ -456,7 +501,7 @@ app.post("/api/listUsers", async (req, res) => {
 //  (reads happen client-side directly via Firestore onSnapshot)
 // =============================================================================
 
-app.post("/api/addScheme", async (req, res) => {
+app.post("/api/addScheme", validate(schemeSchema), async (req, res) => {
   const decoded = await verifyToken(req);
   const authErr = checkRole(decoded, ROLES.SUPER_ADMIN);
   if (authErr) return sendError(res, authErr);
@@ -483,7 +528,7 @@ app.post("/api/addScheme", async (req, res) => {
   }
 });
 
-app.post("/api/updateScheme", async (req, res) => {
+app.post("/api/updateScheme", validate(schemeUpdateSchema), async (req, res) => {
   const decoded = await verifyToken(req);
   const authErr = checkRole(decoded, ROLES.SUPER_ADMIN);
   if (authErr) return sendError(res, authErr);
@@ -505,7 +550,7 @@ app.post("/api/updateScheme", async (req, res) => {
   }
 });
 
-app.post("/api/deleteScheme", async (req, res) => {
+app.post("/api/deleteScheme", validate(deleteSchemeSchema), async (req, res) => {
   const decoded = await verifyToken(req);
   const authErr = checkRole(decoded, ROLES.SUPER_ADMIN);
   if (authErr) return sendError(res, authErr);
@@ -529,7 +574,7 @@ app.post("/api/deleteScheme", async (req, res) => {
 //  always enforced server-side.
 // =============================================================================
 
-app.post("/api/addReminder", async (req, res) => {
+app.post("/api/addReminder", validate(reminderSchema), async (req, res) => {
   const decoded = await verifyToken(req);
   if (!decoded) return sendError(res, { code: 401, message: "Authentication required." });
 
@@ -566,7 +611,7 @@ app.post("/api/addReminder", async (req, res) => {
   }
 });
 
-app.post("/api/updateReminder", async (req, res) => {
+app.post("/api/updateReminder", validate(reminderUpdateSchema), async (req, res) => {
   const decoded = await verifyToken(req);
   if (!decoded) return sendError(res, { code: 401, message: "Authentication required." });
 
@@ -594,7 +639,7 @@ app.post("/api/updateReminder", async (req, res) => {
   }
 });
 
-app.post("/api/deleteReminder", async (req, res) => {
+app.post("/api/deleteReminder", validate(reminderDeleteSchema), async (req, res) => {
   const decoded = await verifyToken(req);
   if (!decoded) return sendError(res, { code: 401, message: "Authentication required." });
 
@@ -626,7 +671,7 @@ function calNoteDocId(uid, date) {
   return `${uid}_${date}`;
 }
 
-app.post("/api/addCalendarNote", async (req, res) => {
+app.post("/api/addCalendarNote", validate(calendarNoteAddSchema), async (req, res) => {
   const decoded = await verifyToken(req);
   if (!decoded) return sendError(res, { code: 401, message: "Authentication required." });
 
@@ -657,7 +702,7 @@ app.post("/api/addCalendarNote", async (req, res) => {
   }
 });
 
-app.post("/api/updateCalendarNote", async (req, res) => {
+app.post("/api/updateCalendarNote", validate(calendarNoteUpdateSchema), async (req, res) => {
   const decoded = await verifyToken(req);
   if (!decoded) return sendError(res, { code: 401, message: "Authentication required." });
 
@@ -683,7 +728,7 @@ app.post("/api/updateCalendarNote", async (req, res) => {
   }
 });
 
-app.post("/api/deleteCalendarNote", async (req, res) => {
+app.post("/api/deleteCalendarNote", validate(calendarNoteDeleteSchema), async (req, res) => {
   const decoded = await verifyToken(req);
   if (!decoded) return sendError(res, { code: 401, message: "Authentication required." });
 
@@ -957,7 +1002,7 @@ async function generateVariant(userPrompt, previousVariants) {
   return runWithFallback(systemPrompt, userPrompt);
 }
 
-app.post("/api/askHealthAssistant", async (req, res) => {
+app.post("/api/askHealthAssistant", chatbotLimiter, validate(askHealthAssistantSchema), async (req, res) => {
   const userPrompt = (req.body?.prompt || "").trim();
   if (!userPrompt) {
     return sendError(res, { code: 400, message: 'Please send a non-empty "prompt".' });
@@ -1021,7 +1066,7 @@ app.post("/api/askHealthAssistant", async (req, res) => {
   }
 });
 
-app.post("/api/analyzeMedicalDocument", async (req, res) => {
+app.post("/api/analyzeMedicalDocument", chatbotLimiter, maybeUploadSingle("document"), validate(analyzeMedicalDocumentSchema), async (req, res) => {
   const systemPrompt = (req.body?.systemPrompt || "").trim();
   const ocrText      = (req.body?.ocrText || "").trim();
 
@@ -1115,3 +1160,6 @@ if (require.main === module) {
     console.log(`Server running locally on http://localhost:${PORT}`);
   });
 }
+
+
+
