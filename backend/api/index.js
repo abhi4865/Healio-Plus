@@ -38,6 +38,7 @@ const {
   createUserSchema,
   updateUserRoleSchema,
   deleteUserSchema,
+  listUsersSchema,
   schemeSchema,
   schemeUpdateSchema,
   deleteSchemeSchema,
