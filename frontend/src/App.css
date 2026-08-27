@@ -2607,3 +2607,281 @@ img, svg, video { max-width: 100%; height: auto; }
   gap: 6px;
   flex-shrink: 0;
 }
+
+/* ============================================
+   AI ASSISTANT / CHATBOT — MOBILE FIX
+   ============================================ */
+
+.card-ai,
+.card-ai .card-header,
+.card-ai .card-body,
+.chatbot-container,
+.chatbot-header,
+.chatbot-messages,
+.chatbot-input-area {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.card-ai {
+  overflow: hidden;
+}
+
+.card-ai .card-header {
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 10px;
+}
+
+.card-ai .card-title {
+  min-width: 0;
+  flex: 1 1 180px;
+  overflow-wrap: anywhere;
+}
+
+.card-ai .ai-badge {
+  flex: 0 1 auto;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.chatbot-container {
+  height: min(70vh, 70dvh);
+  min-height: 360px;
+}
+
+.chatbot-header {
+  flex-wrap: wrap;
+  overflow: hidden;
+}
+
+.chatbot-header > * {
+  min-width: 0;
+}
+
+.chatbot-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.chatbot-messages {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.chat-msg {
+  max-width: min(88%, 100%);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.chatbot-input-area {
+  flex-wrap: nowrap;
+}
+
+.chatbot-input {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .card-ai {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 18px;
+  }
+
+  .card-ai .card-header {
+    padding: 14px;
+  }
+
+  .card-ai .card-title {
+    flex: 1 1 160px;
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  .card-ai .ai-badge {
+    font-size: 9px;
+    padding: 5px 9px;
+  }
+
+  .chatbot-container {
+    height: min(70dvh, 620px);
+    min-height: 380px;
+    border-radius: 18px;
+  }
+
+  .chatbot-header {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .chatbot-messages {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .chat-msg {
+    max-width: 90%;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .chatbot-input-area {
+    padding: 10px;
+    gap: 6px;
+  }
+
+  .chatbot-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 16px;
+    padding: 10px 12px;
+  }
+
+  .chatbot-input-area .voice-btn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    flex: 0 0 40px;
+  }
+
+  .chatbot-input-area .btn {
+    min-width: 0;
+    flex: 0 1 auto;
+    padding: 9px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .card-ai .btn-tabs {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .card-ai .btn-tab {
+    min-width: 0;
+    padding: 8px 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-ai .card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .card-ai .card-title {
+    flex: 1 1 100%;
+    font-size: 13px;
+  }
+
+  .card-ai .ai-badge {
+    flex: 0 0 auto;
+  }
+
+  .chatbot-container {
+    height: 68dvh;
+    min-height: 360px;
+  }
+
+  .chatbot-header {
+    padding: 10px 12px;
+  }
+
+  .chatbot-messages {
+    padding: 10px;
+  }
+
+  .chat-msg {
+    max-width: 94%;
+    padding: 9px 11px;
+    font-size: 12.5px;
+  }
+
+  .chatbot-input-area {
+    padding: 8px;
+    gap: 5px;
+  }
+
+  .chatbot-input {
+    padding: 9px 10px;
+  }
+
+  .chatbot-input-area .voice-btn {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    flex-basis: 38px;
+  }
+
+  .chatbot-input-area .btn {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .card-ai .btn-tabs {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .card-ai .btn-tab {
+    flex: 1 1 auto;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .card-ai .btn {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 360px) {
+  .chatbot-container {
+    height: 66dvh;
+    min-height: 340px;
+  }
+
+  .chatbot-header {
+    gap: 8px;
+  }
+
+  .chatbot-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+  }
+
+  .chatbot-name {
+    font-size: 14px;
+  }
+
+  .chatbot-input-area {
+    padding: 7px;
+    gap: 4px;
+  }
+
+  .chatbot-input {
+    padding: 8px 9px;
+  }
+
+  .chatbot-input-area .voice-btn {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    flex-basis: 36px;
+  }
+
+  .chatbot-input-area .btn {
+    padding: 7px 9px;
+    font-size: 10px;
+  }
+}
+
