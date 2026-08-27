@@ -2092,7 +2092,7 @@ function ChatBot() {
       )}
 
       <div className="card card-ai">
-        <div className="card-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="card-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
           <div className="card-title">
             🤖 AI Health Assistant
             <span className="ai-badge">✨ AI Powered</span>
@@ -2119,7 +2119,7 @@ function ChatBot() {
           </button>
         </div>
         <div className="card-body" style={{ padding: 0 }}>
-          <div className="chatbot-container" style={{ height: 520, border: "none" }}>
+          <div className="chatbot-container" style={{ border: "none" }}>
             <div className="chatbot-header">
               <div className="chatbot-avatar">🩺</div>
               <div>

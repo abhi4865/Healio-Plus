@@ -7,10 +7,12 @@
 
 /* ---------- CSS Variables ---------- */
 :root {
-  --purple-deep:    #6B21A8;
-  --purple-primary: #7C3AED;
-  --purple-mid:     #9333EA;
-  --purple-light:   #C4B5FD;
+  /* Dialed down ~2 shades lighter than the original palette — same purple
+     identity, less stark contrast against white/gold surfaces */
+  --purple-deep:    #8B3DC7;
+  --purple-primary: #9B6BEE;
+  --purple-mid:     #B07AF0;
+  --purple-light:   #D4C3FB;
   --purple-bg:      #F3E8FF;
   --purple-soft:    #EDE9FE;
 
@@ -2295,8 +2297,18 @@ img, svg, video { max-width: 100%; height: auto; }
     min-height: 40px;
   }
 
-  /* Cards / sections: tighter padding so content fits without horizontal scroll */
-  .card-header { padding: 14px 16px; }
+  /* AI card header: title + badge + Download PDF button can no longer fit
+     one line on narrow screens — let it wrap onto two instead of clipping
+     at the right edge (the button itself keeps a normal width, it just
+     drops to its own line) */
+  .card-ai .card-header,
+  .card-header {
+    flex-wrap: wrap;
+    row-gap: 10px;
+    padding: 14px 16px;
+  }
+  .card-title { font-size: 14px; }
+
   .card-body   { padding: 16px; }
   .modal-body  { padding: 16px; }
   .modal-header,
