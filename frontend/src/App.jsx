@@ -153,16 +153,15 @@ function AuthPage({ onLogin, onLoginStart, onLoginEnd }) {
   const [captchaReady, setCaptchaReady] = useState(false);
 
   // Load the reCAPTCHA script once, then render the widget into captchaBoxRef.
-  // Runs for both login and register — the widget div is recreated each time
-  // the form switches mode, so the widget must be re-rendered on every switch
-  // rather than reused (captchaWidgetId is reset below on mode change).
+  // The div is now unconditional (rendered in both login and register), so it
+  // persists across mode switches instead of unmounting/remounting — meaning
+  // this must render exactly ONCE for the component's lifetime, not per mode
+  // switch, or Google's library throws "reCAPTCHA has already been rendered
+  // in this element".
   useEffect(() => {
-    captchaWidgetId.current = null; // previous div (if any) is gone — force re-render
-    setCaptchaReady(false);
-
     function renderWidget() {
       if (!window.grecaptcha || !window.grecaptcha.render || !captchaBoxRef.current) return;
-      if (captchaWidgetId.current !== null) return; // already rendered
+      if (captchaWidgetId.current !== null) return; // already rendered — never re-render
       captchaWidgetId.current = window.grecaptcha.render(captchaBoxRef.current, {
         sitekey: RECAPTCHA_SITE_KEY,
       });
@@ -193,7 +192,7 @@ function AuthPage({ onLogin, onLoginStart, onLoginEnd }) {
     }, 300);
 
     return () => clearInterval(interval);
-  }, [mode]);
+  }, []); // ← run once on mount, not on every mode switch
 
   // Register-only
   const [name, setName]           = useState("");
@@ -201,6 +200,7 @@ function AuthPage({ onLogin, onLoginStart, onLoginEnd }) {
 
   const resetFields = () => {
     setError(""); setPass(""); setConfirm(""); setShowForgotMsg(false);
+    window.grecaptcha?.reset(captchaWidgetId.current ?? undefined);
   };
 
   const switchMode = (next) => { setMode(next); resetFields(); };
