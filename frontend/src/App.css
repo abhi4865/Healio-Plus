@@ -2347,6 +2347,65 @@ img, svg, video { max-width: 100%; height: auto; }
 }
 
 /* ============================================
+   MOBILE COLLAPSE-RISK PATCH
+   (additive only — fills gaps left by the rules
+   above, doesn't redeclare/override them)
+   ============================================ */
+
+/* Flex children default to min-width:auto, which stops them shrinking
+   below their own content size — that's what silently collapses a
+   sibling to 0px when space runs out instead of shrinking gracefully.
+   Applies app-wide to any row of icon/text/button clusters. */
+.topbar-left > *,
+.topbar-right > *,
+.chatbot-input-area > * {
+  min-width: 0;
+}
+
+/* Topbar title: truncate instead of forcing the row to overflow */
+.topbar-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The actual bug in the screenshot: on narrow phones the chatbot's
+   input field, mic button, and Send button don't shrink/wrap, so
+   Send gets pushed off the right edge and clipped by
+   .chatbot-container's overflow:hidden. */
+@media (max-width: 480px) {
+  .chatbot-input-area {
+    flex-wrap: nowrap;
+    padding: 10px 12px;
+    gap: 6px;
+  }
+  .chatbot-input {
+    flex: 1 1 auto;
+    min-width: 0; /* let the text field shrink first, before the buttons do */
+  }
+  .voice-btn {
+    flex: 0 0 auto;
+  }
+  .chatbot-input-area .btn {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+}
+
+/* Extra safety margin for very small phones (<=360px) */
+@media (max-width: 360px) {
+  .btn-signout {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .topbar-title {
+    max-width: 120px;
+  }
+}
+
+/* ============================================
    UTILITIES
    ============================================ */
 .flex          { display: flex; }
