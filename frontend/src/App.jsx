@@ -153,8 +153,12 @@ function AuthPage({ onLogin, onLoginStart, onLoginEnd }) {
   const [captchaReady, setCaptchaReady] = useState(false);
 
   // Load the reCAPTCHA script once, then render the widget into captchaBoxRef.
+  // Runs for both login and register — the widget div is recreated each time
+  // the form switches mode, so the widget must be re-rendered on every switch
+  // rather than reused (captchaWidgetId is reset below on mode change).
   useEffect(() => {
-    if (mode !== "login") return;
+    captchaWidgetId.current = null; // previous div (if any) is gone — force re-render
+    setCaptchaReady(false);
 
     function renderWidget() {
       if (!window.grecaptcha || !window.grecaptcha.render || !captchaBoxRef.current) return;
@@ -257,9 +261,20 @@ function AuthPage({ onLogin, onLoginStart, onLoginEnd }) {
     if (password.length < 6)     return setError("Password must be at least 6 characters.");
     if (password !== confirmPass) return setError("Passwords do not match.");
 
+    const captchaToken = window.grecaptcha?.getResponse(captchaWidgetId.current ?? undefined);
+    if (!captchaToken) {
+      return setError("Please complete the CAPTCHA.");
+    }
+
     setLoading(true);
     onLoginStart?.();
     try {
+      const verifyData = await verifyCaptcha(captchaToken);
+      if (!verifyData?.success) {
+        window.grecaptcha?.reset(captchaWidgetId.current ?? undefined);
+        throw new Error("CAPTCHA verification failed. Please try again.");
+      }
+
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const idToken = await cred.user.getIdToken();
       await selfRegisterUser(idToken, { name: name.trim(), email: email.trim() });
@@ -270,6 +285,7 @@ function AuthPage({ onLogin, onLoginStart, onLoginEnd }) {
           : { name: name.trim(), email: email.trim(), role: "user" }
       );
     } catch (err) {
+      window.grecaptcha?.reset(captchaWidgetId.current ?? undefined);
       setError(err.message?.replace(/^Firebase:\s*/, "") || "Registration failed.");
     } finally {
       setLoading(false);
@@ -381,12 +397,10 @@ function AuthPage({ onLogin, onLoginStart, onLoginEnd }) {
               </div>
             )}
 
-            {/* CAPTCHA — login only */}
-            {!isRegister && (
-              <div style={{ marginBottom: 20 }}>
-                <div ref={captchaBoxRef} />
-              </div>
-            )}
+            {/* CAPTCHA — required for both login and register */}
+            <div style={{ marginBottom: 20 }}>
+              <div ref={captchaBoxRef} />
+            </div>
 
             {/* Error */}
             {error && <div className="login-error">{error}</div>}
