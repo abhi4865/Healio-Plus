@@ -49,13 +49,21 @@
 
 html { scroll-behavior: smooth; }
 
+html, body {
+  overflow-x: hidden; /* prevents any stray fixed-width child from creating horizontal scroll on phones */
+  width: 100%;
+}
+
 body {
   font-family: 'Poppins', 'Noto Sans Devanagari', sans-serif;
   background: var(--off-white);
   color: var(--text-dark);
   min-height: 100vh;
+  min-height: 100dvh; /* accounts for mobile browser chrome (address bar) */
   -webkit-font-smoothing: antialiased;
 }
+
+img, svg, video { max-width: 100%; height: auto; }
 
 /* ---------- Scrollbar ---------- */
 ::-webkit-scrollbar { width: 6px; }
@@ -1678,16 +1686,51 @@ body {
 
 .login-register-link:hover { color: var(--gold-bright); }
 
+/* CAPTCHA wrapper — google's widget is a fixed ~304px box that doesn't
+   resize itself, so this centers it and (on very narrow screens) scales
+   it down instead of letting it push the panel into horizontal scroll */
+.login-captcha-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+  max-width: 100%;
+  overflow: hidden; /* belt-and-suspenders if scale ever isn't enough */
+}
+
 /* Mobile login */
 @media (max-width: 768px) {
   .login-page {
     flex-direction: column;
     padding: 20px 16px;
     gap: 20px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: auto;
+    align-items: center;
+    overflow-y: auto; /* lets the page scroll if content + keyboard exceeds viewport */
   }
   .login-left { display: none; }
-  .login-form-panel { padding: 36px 24px; }
-  .login-brand-title { font-size: 36px; }
+  .login-form-panel {
+    padding: 32px 20px;
+    min-height: 0; /* don't force extra empty space on short/landscape phones */
+    width: 100%;
+  }
+  .login-brand-title { font-size: 32px; }
+  .login-input, .login-select { font-size: 16px; } /* prevents iOS auto-zoom on focus */
+}
+
+/* Small phones — reCAPTCHA's ~304px widget is wider than the available
+   space once page + panel padding are subtracted, so scale it down */
+@media (max-width: 380px) {
+  .login-page { padding: 14px 10px; }
+  .login-form-panel { padding: 26px 14px; }
+  .login-brand-title { font-size: 28px; }
+  .login-tagline, .login-subtitle { font-size: 13px; }
+  .login-captcha-wrap {
+    transform: scale(0.87);
+    transform-origin: center;
+    margin-bottom: 8px; /* compensate for the visual space the scale removes */
+  }
 }
 
 /* ============================================
@@ -2213,6 +2256,82 @@ body {
 
 @media (max-width: 768px) {
   .sidebar-overlay.active { display: block; }
+}
+
+/* ============================================
+   RESPONSIVE PASS — desktop + mobile
+   (kept as one block so it always applies last
+   and wins over earlier component rules)
+   ============================================ */
+
+/* ---- Large / ultra-wide desktop: stop content stretching edge-to-edge ---- */
+@media (min-width: 1440px) {
+  .page-body {
+    max-width: 1440px;
+    margin: 0 auto;
+    width: 100%;
+  }
+}
+
+/* ---- Tablet / small laptop ---- */
+@media (max-width: 1024px) {
+  .page-body { padding: 22px; }
+  .stats-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .form-grid  { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+}
+
+/* ---- Phones & small tablets (shared with existing 768px rules above) ---- */
+@media (max-width: 768px) {
+  /* Topbar: keep title readable, let the right cluster shrink instead of
+     overflowing off-screen */
+  .topbar { padding: 0 14px; height: 58px; }
+  .topbar-title { font-size: 17px; }
+  .topbar-right { gap: 8px; }
+  .welcome-text { display: none; } /* first thing to drop on narrow screens */
+
+  /* Touch targets — keep icon-only buttons comfortably tappable */
+  .notif-btn, .modal-close, .voice-btn, .sidebar-toggle {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  /* Cards / sections: tighter padding so content fits without horizontal scroll */
+  .card-header { padding: 14px 16px; }
+  .card-body   { padding: 16px; }
+  .modal-body  { padding: 16px; }
+  .modal-header,
+  .modal-footer { padding: 14px 16px; }
+  .modal { max-width: calc(100% - 24px); }
+
+  /* Chatbot: let it fill available height on mobile instead of a fixed 420px box */
+  .chatbot-container { height: min(70vh, 70dvh); }
+  .chat-msg { max-width: 88%; font-size: 13px; }
+  .chatbot-input { font-size: 16px; } /* 16px prevents iOS Safari auto-zoom on focus */
+
+  /* Buttons: full-width stacking is friendlier for thumbs on narrow screens */
+  .modal-footer { flex-wrap: wrap; }
+  .modal-footer .btn { flex: 1 1 auto; }
+
+  /* Tables: never let a table force the whole page to scroll horizontally —
+     only the table itself scrolls (table-wrapper already sets overflow-x) */
+  .data-table { font-size: 13px; }
+  .data-table th, .data-table td { padding: 10px 12px; }
+}
+
+/* ---- Small phones ---- */
+@media (max-width: 420px) {
+  .page-body { padding: 12px; }
+  .topbar { padding: 0 10px; }
+  .topbar-title { font-size: 15px; }
+  .card-body { padding: 12px; }
+  .btn { padding: 10px 14px; font-size: 13px; }
+  .chat-msg { max-width: 92%; }
+  .stats-grid { gap: 10px; }
+}
+
+/* ---- Any input that could trigger iOS zoom-on-focus, app-wide ---- */
+@media (max-width: 768px) {
+  .form-input, .form-select, .form-textarea { font-size: 16px; }
 }
 
 /* ============================================

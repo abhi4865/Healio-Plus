@@ -398,7 +398,7 @@ function AuthPage({ onLogin, onLoginStart, onLoginEnd }) {
             )}
 
             {/* CAPTCHA — required for both login and register */}
-            <div style={{ marginBottom: 20 }}>
+            <div className="login-captcha-wrap">
               <div ref={captchaBoxRef} />
             </div>
 
